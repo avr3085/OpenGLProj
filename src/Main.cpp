@@ -1,26 +1,16 @@
 #include "Config.h"
-
-const char *vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "layout (location = 1) in vec3 vCol;\n" // vertex color
-    "out vec3 outCol;\n"
-    "void main()\n"
-    "{\n"
-    "gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0f);\n"
-    "outCol = vCol;\n"
-    "}\0";
-
-const char *fragmentShaderSource = "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "in vec3 outCol;\n"
-    "void main()\n"
-    "{\n"
-    // "FragColor = outCol;\n"
-    "FragColor = vec4(outCol, 1.0f);\n"
-    "}\0";
+#include "Shader.cpp"
 
 int main()
 {
+    // --- for output check
+    #ifndef ONLINE_JUDGE
+    // freopen("input.txt", "r", stdin);
+    freopen("output.txt", "w", stdout);
+    #endif
+
+    // ------- end output check ----
+
     if (!glfwInit())
         return -1;
     
@@ -43,95 +33,82 @@ int main()
     }
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 
-    /// ======================== Drawing the triangle below =================
     // float vertices[] = {
-    //     0.5f,  0.5f, 0.0f,  // top right
-    //     0.5f, -0.5f, 0.0f,  // bottom right
-    //     -0.5f, -0.5f, 0.0f,  // bottom left
-    //     -0.5f,  0.5f, 0.0f   // top left 
-    // };
+    //     // positions         // colors
+    //      0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  0.5f, -0.5f,   // bottom right
+    //     -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  -0.5f, -0.5f,  // bottom left
+    //      0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.5f   // top 
+    // };  
 
     float vertices[] = {
-        // positions         // colors
-         0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
-        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
-         0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
-    };  
+        // positions          // colors           // texture coords
+         0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   0.5f, 0.5f, // top right
+         0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   0.5f, -0.5f, // bottom right
+        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   -0.5f, -0.5f, // bottom left
+        -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   -0.5f, 0.5f  // top left 
+    };
+    
+    unsigned int indices[] = {  
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
+    };
 
-    // unsigned int indices[] = {
-    //     0, 1, 3,   // first triangle
-    //     1, 2, 3    // second triangle
-    // };
+    Shader shader;
+    unsigned int shaderProgram = shader.Init();
 
-    // compiling and linking shader
-    int sucess;
-    char infoLog[512];
-    unsigned int vertexShader =  glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
+    // ------------ Load the texture --------------
 
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &sucess);
-    if(!sucess){
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        cout << "Unable to make vertex shader." << endl;
-        return -1;
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    // set the texture wrapping/filtering options (on the currently bound texture object)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // loading image
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load("../src/Tex/wall.jpg", &width, &height, & nrChannels, 0);
+
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
     }
-
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &sucess);
-    if(!sucess){
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        cout << "Unable to create fragment shader." << endl;
-        return -1;
+    else
+    {
+        cout << "Failed to load texture" << std::endl;
     }
+    stbi_image_free(data);
 
-    // linking shaders
-    unsigned int shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
 
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &sucess);
-    if(!sucess){
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        cout << "Unable to link programme." << endl;
-        return -1;
-    }
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    // ------------ End ----------------------
 
-    // unsigned int VBO, VAO, EBO;
-    unsigned int VBO, VAO;
+    unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    // glGenBuffers(1, &EBO);
+    glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    /// 0 = this is the value we set in the vertex shader (location = 0)
-    /// 3 = vec3 we set in the shader, if we used vec4 in the vertshader then the value was 4
-    /// GL_FLOAT = data type of vec
-    /// GL_FALSSE = the data is already normalized, so we set it false
-    /// 3 * sizeof(float) = stride size
-    // The last parameter is of type void* and thus requires that weird cast. This is the offset of where the position data begins in the buffer. 
-    // Since the position data is at the start of the data array this value is just 0. We will explore this parameter in more detail later on
-    
     //position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) 0);
     glEnableVertexAttribArray(0);
 
     //color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*) (3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    // texture attribute
+        
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2); 
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -145,9 +122,10 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         // glUseProgram(shaderProgram);
+        glBindTexture(GL_TEXTURE_2D, texture);
+
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -155,8 +133,7 @@ int main()
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    // glDeleteBuffers(1, &EBO);
-    glDeleteProgram(shaderProgram);
+    glDeleteBuffers(1, &EBO);
 
     glfwTerminate();
     return 0;
