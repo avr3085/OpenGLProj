@@ -1,5 +1,6 @@
 #include "Config.h"
 #include "Shader.cpp"
+#include "Transformation.cpp"
 
 int main()
 {
@@ -55,6 +56,7 @@ int main()
 
     Shader shader;
     unsigned int shaderProgram = shader.Init();
+    glUseProgram(shaderProgram);
 
     // ------------ Load the texture --------------
 
@@ -81,8 +83,27 @@ int main()
     }
     stbi_image_free(data);
 
-
     // ------------ End ----------------------
+
+
+    // ------ Using Transformation matrix -----
+
+    v3 pos = {0.0f, 0.0f, 0.0f};
+    unsigned int model_location = glGetUniformLocation(shaderProgram, "model");
+	unsigned int view_location = glGetUniformLocation(shaderProgram, "view");
+	unsigned int proj_location = glGetUniformLocation(shaderProgram, "projection");
+
+    glm::vec3 camera_pos = {-1.0f, 0.0f, 1.0f};
+	glm::vec3 camera_target = {0.0f, 0.0f, 0.0f};
+	glm::vec3 up = {0.0f, 0.0f, 1.0f};
+	glm::mat4 view = glm::lookAt(camera_pos, camera_target, up);
+	glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
+
+	glm::mat4 projection = glm::perspective(
+		45.0f, 640.0f / 480.0f, 0.1f, 10.0f);
+	glUniformMatrix4fv(proj_location, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // --- end of transformation matrix
 
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
@@ -113,19 +134,20 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    glUseProgram(shaderProgram);
-
-
-
     while (!glfwWindowShouldClose(window))
     {
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // glUseProgram(shaderProgram);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glUseProgram(shaderProgram);
+        m4 model = TransRotMatrix(-0.01f * glfwGetTime(), pos);
 
+        glUniformMatrix4fv(model_location, 1, GL_FALSE, model.indices);
+
+        
+        glBindTexture(GL_TEXTURE_2D, texture);
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();
