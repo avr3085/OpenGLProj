@@ -2,6 +2,21 @@
 #include "Shader.cpp"
 #include "Transformation.cpp"
 
+// settings
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
+void processInput(GLFWwindow *window);
+
+//camera
+glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f,  3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
+
+// timing
+float deltaTime = 0.0f;	// time between current frame and last frame
+float lastFrame = 0.0f;
+
 int main()
 {
     // --- for output check
@@ -20,7 +35,7 @@ int main()
     // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
     GLFWwindow* window;
-    window = glfwCreateWindow(640, 480, "GLFW CMake starter", NULL, NULL);
+    window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "GLFW CMake starter", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -88,19 +103,24 @@ int main()
 
     // ------ Using Transformation matrix -----
 
-    v3 pos = {0.0f, 0.0f, 0.0f};
+    v3 positions[] = { 
+        {2.0f,  5.0f, -15.0f}, 
+        {-1.5f, -2.2f, -2.5f},  
+        {-3.8f, -2.0f, -12.3f},  
+        {2.4f, -0.4f, -3.5f},  
+        {-1.7f,  3.0f, -7.5f},  
+        {1.3f, -2.0f, -2.5f},  
+        {1.5f,  2.0f, -2.5f}, 
+        {1.5f,  0.2f, -1.5f}, 
+        {-1.3f,  1.0f, -1.5f}  
+    };
+
     unsigned int model_location = glGetUniformLocation(shaderProgram, "model");
 	unsigned int view_location = glGetUniformLocation(shaderProgram, "view");
 	unsigned int proj_location = glGetUniformLocation(shaderProgram, "projection");
 
-    glm::vec3 camera_pos = {-1.0f, 0.0f, 1.0f};
-	glm::vec3 camera_target = {0.0f, 0.0f, 0.0f};
-	glm::vec3 up = {0.0f, 0.0f, 1.0f};
-	glm::mat4 view = glm::lookAt(camera_pos, camera_target, up);
-	glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
-
 	glm::mat4 projection = glm::perspective(
-		45.0f, 640.0f / 480.0f, 0.1f, 10.0f);
+		45.0f, 800.0f / 600.0f, 0.1f, 10.0f);
 	glUniformMatrix4fv(proj_location, 1, GL_FALSE, glm::value_ptr(projection));
 
     // --- end of transformation matrix
@@ -136,19 +156,31 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
-        glClear(GL_COLOR_BUFFER_BIT);
+        // per-frame time logic
+        // --------------------
+        float currentFrame = static_cast<float>(glfwGetTime());
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
 
+        // input
+        // -----
+        processInput(window);
         glUseProgram(shaderProgram);
-        m4 model = TransRotMatrix(-0.01f * glfwGetTime(), pos);
+        // updating camera position
+        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+	    glUniformMatrix4fv(view_location, 1, GL_FALSE, glm::value_ptr(view));
 
-        glUniformMatrix4fv(model_location, 1, GL_FALSE, model.indices);
-
-        
+        glClear(GL_COLOR_BUFFER_BIT);
         glBindTexture(GL_TEXTURE_2D, texture);
+
+        for(auto p : positions){
+            m4 model = TransRotMatrix(-0.01f * glfwGetTime(), p);
+            glUniformMatrix4fv(model_location, 1, GL_FALSE, model.indices);
+
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        }
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-
+        
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -159,4 +191,22 @@ int main()
 
     glfwTerminate();
     return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+void processInput(GLFWwindow *window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    float cameraSpeed = static_cast<float>(2.5 * deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
